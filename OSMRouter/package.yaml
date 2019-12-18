@@ -1,0 +1,48 @@
+name:                OSMRouter
+version:             0.1.0.0
+github:              "alephu5/OSMRouter"
+license:             BSD3
+author:              "Nigel Sotelo"
+maintainer:          "morrison.sotelo@gmail.com"
+copyright:           "GPL 3"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/alephu5/OSMRouter#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+
+executables:
+  OSMRouter-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - OSMRouter
+
+tests:
+  OSMRouter-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - OSMRouter
