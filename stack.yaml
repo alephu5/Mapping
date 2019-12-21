@@ -18,6 +18,9 @@
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
 resolver: lts-14.17
+docker:
+  enable: false
+image: e6be3229b47b790ba2a8dd3f8d36e879705e0df18082f6afe0f36979987194a6
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
