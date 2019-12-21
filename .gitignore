@@ -1,3 +1,4 @@
+*~
 .stack-work/
 OSMRouter.cabal
-*~
+stack.yaml.lock
