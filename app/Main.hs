@@ -1,47 +1,83 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+
 module Main where
 
--- import           Control.Monad.Trans.Resource
--- import           Data.Graph
--- import           Lib
--- import           Streaming
-import           Control.Error.Util
-import           Control.Monad.IO.Class
-import           Data.ByteString                ( ByteString )
-import           Network.HTTP.Req
--- import           Streaming.Osm
-import           Streaming.Osm.Types
-import           Xeno.DOM
--- import qualified Streaming.Prelude             as S
+-- import           Control.Error.Util
+-- import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Resource
+import           Data.Graph.Inductive.Graph     ( LEdge
+                                                , LNode
+                                                , mkGraph
+                                                , size
+                                                )
+import           Data.Graph.Inductive.PatriciaTree
+import           Data.Graph.Inductive.Query.SP
+import qualified Data.Map                      as M
+import           Data.Maybe
+import           Streaming.Osm
+import qualified Streaming.Osm.Types           as OSM
+import qualified Streaming.Prelude             as S
+-- import           Xeno.DOM
 
-matchId :: Int -> Way -> Bool
-matchId infoId way = case _winfo way of
+matchId :: Int -> OSM.Way -> Bool
+matchId infoId way = case OSM._winfo way of
   Nothing   -> False
-  Just info -> _id info == infoId
+  Just info -> OSM._id info == infoId
+
+createNode :: (Location, OSM.Info) -> LNode Location
+createNode (loc, OSM.Info {..}) = (_id, loc)
+
+type Distance = Double
+
+createEdges :: [Int] -> M.Map Int Location -> [LEdge Double]
+createEdges points nodeMap =
+  let distance a b = haversineDistance (fromJust $ M.lookup a nodeMap)
+                                       (fromJust $ M.lookup b nodeMap)
+  in  case points of
+        (a : b : rest) -> (a, b, distance a b) : createEdges (b : rest) nodeMap
+        _              -> []
+
 
 main :: IO ()
-main = runReq defaultHttpConfig $ do
-  -- let payload = "(node(id:2661538045,1558201809); <;);out;"
-  let payload = "(way(142380557););out;"
-  r <- req POST
-           (https "overpass-api.de" /: "api" /: "interpreter")
-           (ReqBodyBs payload)
-           bsResponse
-           mempty
-  let mayNode = hush . parse $ responseBody r
-  case mayNode of
-    Just n ->
-      liftIO
-      -- $ print (filter (\x -> name x == ("node" :: ByteString)) $ children n)
-        $ print
-        $ head (filter (\x -> name x == ("way" :: ByteString)) $ children n)
-    _ -> return ()
-
+main = do
+  nodeList <-
+    runResourceT
+    $ S.toList_
+    $ S.mapMaybe
+        (\case
+          (OSM.Node lat lng (Just OSM.Info {..}) _) ->
+            Just (_id, Location lat lng)
+          (OSM.Node _ _ Nothing _) -> Nothing
+        )
+    $ nodes
+    . blocks
+    $ blobs "barcelona.pbf"
+  let nodeMap = M.fromList nodeList
+  graphWays <-
+    runResourceT
+    $ S.toList_
+    $ S.mapMaybe
+        (\case
+          (OSM.Way ns (Just OSM.Info {..}) _) -> Just ns
+          (OSM.Way _  Nothing              _) -> Nothing
+        )
+    $ ways
+    . blocks
+    $ blobs "barcelona.pbf"
+  print $ sp
+    6900562800
+    501829282
+    (mkGraph nodeList (concatMap (`createEdges` nodeMap) graphWays) :: Gr
+        Location
+        Double
+    )
 
 data Location = Location {latitude :: Double, longitude :: Double} deriving Show
 
 earthRad :: Double
-earthRad = 6371.0 :: Double
+earthRad = 6371.0 * 1e3 :: Double
 
 toRad :: (Fractional a, Floating a) => a -> a
 toRad = (*) (pi / 180)
